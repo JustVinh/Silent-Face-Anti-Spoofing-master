@@ -1,8 +1,8 @@
 import cv2
 import time
 
-label = 1
-name = 0
+label = 0
+name = 741
 
 DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
 
@@ -16,9 +16,10 @@ while (True):
     ret, frame = vid.read()
 
     # Display the resulting frame
-    cv2.imshow('frame', frame)
+    cv2.imshow('frame' + str(name), frame)
     cv2.imwrite(DATA_PATH + '/' + str(label) + '/' + str(name) + '.jpg', frame)
     time.sleep(1)
+    name += 1
     # the 'q' button is set as the
     # quitting button you may use any
     # desired button of your choice

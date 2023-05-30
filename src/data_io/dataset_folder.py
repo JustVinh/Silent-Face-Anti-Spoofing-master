@@ -25,6 +25,7 @@ class DatasetFolderFT(datasets.ImageFolder):
         self.ft_height = ft_height
 
     def __getitem__(self, index):
+        #target means label: a feature from datasets.ImageFolder if you arrange data folder structure correctly
         path, target = self.samples[index]
         sample = self.loader(path)
         # generate the FT picture of the sample

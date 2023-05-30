@@ -10,6 +10,9 @@ Create patch from original input image by using bbox coordinate
 
 import cv2
 import numpy as np
+import os
+
+from src.anti_spoof_predict import Detection
 
 
 class CropImage:
@@ -63,3 +66,28 @@ class CropImage:
                           left_top_x: right_bottom_x+1]
             dst_img = cv2.resize(img, (out_w, out_h))
         return dst_img
+
+if __name__ == "__main__":
+    DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/zalo/zalo_image'
+    PATCH_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2_80x80'
+    image_cropper = CropImage()
+    detector = Detection()
+    no_img = 0
+    for label in range(2):
+        directory = os.fsencode(DATA_PATH + '/' + str(label))
+        for file in os.listdir(directory):
+            filename = os.fsdecode(file)
+            if filename.endswith(".png"):
+                file_path = os.path.join(DATA_PATH + '/' + str(label), filename)
+                img = cv2.imread(file_path)
+
+                img_bbox = detector.get_bbox(img)
+                new_img = image_cropper.crop(img, img_bbox, 2, 80, 80, True)
+
+                my_label = 1
+                if label == 0: my_label = 2
+
+                save_path = os.path.join(PATCH_PATH + '/' + str(my_label), filename)
+                cv2.imwrite(save_path, new_img)
+                no_img += 1
+                print("Done ", no_img)

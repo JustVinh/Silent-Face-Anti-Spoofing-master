@@ -6,6 +6,8 @@
 # @Software : PyCharm
 
 import os
+from collections import OrderedDict
+
 import cv2
 import math
 import torch
@@ -27,8 +29,11 @@ MODEL_MAPPING = {
 
 class Detection:
     def __init__(self):
-        caffemodel = "./resources/detection_model/Widerface-RetinaFace.caffemodel"
-        deploy = "./resources/detection_model/deploy.prototxt"
+        # caffemodel = "./resources/detection_model/Widerface-RetinaFace.caffemodel"
+        # deploy = "./resources/detection_model/deploy.prototxt"
+        caffemodel = "/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/detection_model/Widerface-RetinaFace.caffemodel"
+        deploy = "/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/detection_model/deploy.prototxt"
+
         self.detector = cv2.dnn.readNetFromCaffe(deploy, caffemodel)
         self.detector_confidence = 0.6
 
@@ -53,7 +58,10 @@ class Detection:
 class AntiSpoofPredict(Detection):
     def __init__(self, device_id):
         super(AntiSpoofPredict, self).__init__()
-        self.device = torch.device("cuda:{}".format(device_id)
+        if device_id == 10000:
+            self.device = torch.device("cpu")
+        else:
+            self.device = torch.device("cuda:{}".format(device_id)
                                    if torch.cuda.is_available() else "cpu")
 
     def _load_model(self, model_path):
@@ -100,6 +108,37 @@ class AntiSpoofPredict(Detection):
             self.model.load_state_dict(state_dict)
         return None
 
+    def custom_load_modelv2(self, model_path):
+        # define model
+        model_name = os.path.basename(model_path)
+        h_input, w_input, model_type, _ = parse_model_name(model_name)
+        self.kernel_size = get_kernel(h_input, w_input,)
+        self.model = MODEL_MAPPING[model_type](conv6_kernel=self.kernel_size).to(self.device)
+
+        # load model weight
+        state_dict = torch.load(model_path, map_location=self.device)
+        new_state_dict = OrderedDict()
+        for key, value in state_dict.items():
+            if key.find('module.') >= 0:
+                name_key = key[7:]
+
+            if name_key.find('model.') >= 0:
+                name_key = name_key[6:]
+            new_state_dict[name_key] = value
+
+        params = {
+            'embedding_size': 128,
+            'conv6_kernel': (5, 5),
+            'drop_p': 0.75,
+            'num_classes': 3,
+            'img_channel': 3
+        }
+
+        self.model = MiniFASNetV2SE(**params)
+
+        self.model.load_state_dict(new_state_dict, strict=False)
+        return None
+
     def predict(self, img, model_path):
         test_transform = trans.Compose([
             trans.ToTensor(),
@@ -119,9 +158,10 @@ class AntiSpoofPredict(Detection):
         ])
         img = test_transform(img)
         img = img.unsqueeze(0)
-        if self.device != 'cpu':
+        if self.device.type != 'cpu':
             img = img.cuda()
-
+        else:
+            img = img.to('cpu')
         result = self.model(img)
         result = F.softmax(result).cpu().detach().numpy()
         return result
