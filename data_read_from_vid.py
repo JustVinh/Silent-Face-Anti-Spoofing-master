@@ -2,9 +2,9 @@ import cv2
 import time
 
 label = 1
-name = 69
+name = 572
 
-DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata/Mydata-20230523T151458Z-001/Mydata'
+DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata/Vid_data-20230602T072825Z-001/Vid_data'
 REAL_DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
 
 import os

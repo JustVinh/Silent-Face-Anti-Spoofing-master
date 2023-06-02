@@ -6,6 +6,8 @@
 # @Software : PyCharm
 from torch import nn
 import torch.nn.functional as F
+from torch._dynamo.variables import torch
+
 from src.model_lib.MiniFASNet import MiniFASNetV1,MiniFASNetV2,MiniFASNetV1SE,MiniFASNetV2SE
 
 
@@ -36,8 +38,7 @@ class MultiFTNet(nn.Module):
         super(MultiFTNet, self).__init__()
         self.img_channel = img_channel
         self.num_classes = num_classes
-        self.model = MiniFASNetV2SE(embedding_size=embedding_size, conv6_kernel=conv6_kernel,
-                                      num_classes=num_classes, img_channel=img_channel)
+        self.model = MiniFASNetV2(embedding_size=embedding_size, conv6_kernel=conv6_kernel, num_classes=num_classes, img_channel=img_channel)
         self.FTGenerator = FTGenerator(in_channels=128)
         self._initialize_weights()
 
@@ -54,6 +55,20 @@ class MultiFTNet(nn.Module):
                 nn.init.normal_(m.weight, std=0.001)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
+
+        # load model weight
+        state_dict = torch.load('../../resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth', map_location=self.device)
+        keys = iter(state_dict)
+        first_layer_name = keys.__next__()
+        if first_layer_name.find('module.') >= 0:
+            from collections import OrderedDict
+            new_state_dict = OrderedDict()
+            for key, value in state_dict.items():
+                name_key = key[7:]
+                new_state_dict[name_key] = value
+            self.model.load_state_dict(new_state_dict)
+        else:
+            self.model.load_state_dict(state_dict)
 
     def forward(self, x):
         x = self.model.conv1(x)

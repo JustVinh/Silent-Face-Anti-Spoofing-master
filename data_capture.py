@@ -2,7 +2,7 @@ import cv2
 import time
 
 label = 0
-name = 741
+name = 1641
 
 DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
 

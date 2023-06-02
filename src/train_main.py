@@ -113,6 +113,10 @@ class TrainMain:
         acc = self._get_accuracy(embeddings, labels)[0]
         loss.backward()
         self.optimizer.step()
+        print("Loss: " + loss.item())
+        print("Acc:" + acc)
+        print("Loss cls " + loss_cls.item())
+        print("Loss fea " + loss_fea.item())
         return loss.item(), acc, loss_cls.item(), loss_fea.item()
 
     def _define_network(self):

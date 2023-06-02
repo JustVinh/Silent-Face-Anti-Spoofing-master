@@ -68,8 +68,8 @@ class CropImage:
         return dst_img
 
 if __name__ == "__main__":
-    DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/zalo/zalo_image'
-    PATCH_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2_80x80'
+    DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
+    PATCH_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2_224x224'
     image_cropper = CropImage()
     detector = Detection()
     no_img = 0
@@ -77,15 +77,16 @@ if __name__ == "__main__":
         directory = os.fsencode(DATA_PATH + '/' + str(label))
         for file in os.listdir(directory):
             filename = os.fsdecode(file)
-            if filename.endswith(".png"):
+            if filename.endswith(".jpg"):
                 file_path = os.path.join(DATA_PATH + '/' + str(label), filename)
                 img = cv2.imread(file_path)
 
                 img_bbox = detector.get_bbox(img)
-                new_img = image_cropper.crop(img, img_bbox, 2, 80, 80, True)
+                new_img = image_cropper.crop(img, img_bbox, 1, 224, 224, True)
 
                 my_label = 1
-                if label == 0: my_label = 2
+                if label == 0: my_label = 0
+
 
                 save_path = os.path.join(PATCH_PATH + '/' + str(my_label), filename)
                 cv2.imwrite(save_path, new_img)
