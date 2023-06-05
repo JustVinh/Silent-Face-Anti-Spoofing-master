@@ -6,3 +6,5 @@ torch
 opencv_python
 Pillow
 tensorboardX
+onnx
+onnxruntime-gpu

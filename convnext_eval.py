@@ -11,6 +11,10 @@ import numpy as np
 import argparse
 import warnings
 import time
+from PIL import Image
+import torch
+import onnxruntime
+import timm
 
 from src.anti_spoof_predict import AntiSpoofPredict
 from src.generate_patches import CropImage
@@ -30,8 +34,7 @@ def check_image(image):
     # else:
     #     return True
     return True
-
-def test_cam(model_1, model_2, image_cropper):
+def test_cam(model_1, image_cropper, session, transform, input_name):
     n_sample = 0
     n_0 = 0
     n_1 = 1
@@ -47,10 +50,10 @@ def test_cam(model_1, model_2, image_cropper):
             if filename.endswith(".jpg"):
                 n_sample += 1
 
-                file_path = os.path.join(DATA_PATH+ '/' + str(label), filename)
+                file_path = os.path.join(DATA_PATH + '/' + str(label), filename)
 
                 frame = cv2.imread(file_path)
-                pred = test_image(frame, model_1, model_2, image_cropper)
+                pred = test_image(frame, model_1, image_cropper, session, transform, input_name)
 
                 if pred == 2: pred = 0
 
@@ -62,7 +65,7 @@ def test_cam(model_1, model_2, image_cropper):
                     if pred == 1:
                         n_fa += 1
                 else:
-                    n_1 +=  1
+                    n_1 += 1
                     if pred == 0:
                         n_fr += 1
 
@@ -74,7 +77,7 @@ def test_cam(model_1, model_2, image_cropper):
                 # desired button of your choice
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-    print("ACC: ", n_true/n_sample)
+    print("ACC: ", n_true / n_sample)
     print("FAR: ", n_fa / n_0)
     print("FRR: ", n_fr / n_1)
 
@@ -82,47 +85,50 @@ def test_cam(model_1, model_2, image_cropper):
     # Destroy all the windows
     cv2.destroyAllWindows()
 
-def test_image(image, model_1, model_2, image_cropper):
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0) # only difference
+
+def test_image(image, model_1, image_cropper, session, transform, input_name):
 
     image_cropper = CropImage()
     result = check_image(image)
     if result is False:
         return
     image_bbox = model_1.get_bbox(image)
-    prediction = np.zeros((1, 3))
+
     test_speed = 0
     # sum the prediction from single model's result
-    model_list = [model_1, model_2]
-    for i, model in enumerate(model_list):
-        if i ==0 :
-            h_input, w_input, model_type, scale = parse_model_name('4_0_0_80x80_MiniFASNetV1SE.pth')
-        else:
-            h_input, w_input, model_type, scale = parse_model_name('2.7_80x80_MiniFASNetV2.pth')
-        param = {
-            "org_img": image,
-            "bbox": image_bbox,
-            "scale": scale,
-            "out_w": w_input,
-            "out_h": h_input,
-            "crop": True,
-        }
-        if scale is None:
-            param["crop"] = False
-        img = image_cropper.crop(**param)
-        start = time.time()
-        prediction += model.predict_from_loaded(img)
-        test_speed += time.time()-start
 
+    # param = {
+    #     "org_img": image,
+    #     "bbox": image_bbox,
+    #     "scale": 4,
+    #     "out_w": 224,
+    #     "out_h": 224,
+    #     "crop": True,
+    # }
+
+    # face_img = image_cropper.crop(**param)
+    color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(color_coverted)
+
+    im = transform(pil_image).unsqueeze(0).cpu().numpy().astype(np.float32)
+
+    start = time.time()
+    a = session.run(None, {input_name: im.astype(np.float32)})[0]
+    test_speed += time.time()-start
+    probabilities = softmax(a[0])
+    label = probabilities.argmax()
     # draw result of prediction
-    label = np.argmax(prediction)
-    value = prediction[0][label]/2
     if label == 1:
-        print("Image '{}' is Real Face. Score: {:.2f}.".format("image_name", value))
-        result_text = "RealFace Score: {:.2f}".format(value)
+        print("Image '{}' is Real Face. Score: {:.2f}.".format("image_name", 0))
+        result_text = "RealFace Score: {:.2f}".format(0)
         color = (255, 0, 0)
     else:
-        print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", value))
-        result_text = "FakeFace Score: {:.2f}".format(value)
+        print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", 0))
+        result_text = "FakeFace Score: {:.2f}".format(0)
         color = (0, 0, 255)
     print("Prediction cost {:.2f} s".format(test_speed))
     cv2.rectangle(
@@ -164,16 +170,27 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model_1 = AntiSpoofPredict(args.device_id)
-    model_2 = AntiSpoofPredict(args.device_id)
+    # model_2 = AntiSpoofPredict(args.device_id)
 
     model_1.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth')
-    model_2.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth')
+    # model_2.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth')
     image_cropper = CropImage()
 
     model_1.model.eval()
     model_1.model.cuda()
+    #
+    # model_2.model.eval()
+    # model_2.model.cuda()
 
-    model_2.model.eval()
-    model_2.model.cuda()
+    providers = ['CUDAExecutionProvider']
+    session = onnxruntime.InferenceSession('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/convnext_quantized/convnext.fp16.simplified.onnx',
+                                           providers=providers)
+    input_name = session.get_inputs()[0].name
 
-    test_cam(model_1, model_2, image_cropper)
+    model = timm.create_model(
+        "convnext_tiny_in22ft1k", pretrained=False, num_classes=2
+    )
+    data_cfg = timm.data.resolve_data_config(model.pretrained_cfg)
+    transform = timm.data.create_transform(**data_cfg)
+
+    test_cam(model_1, image_cropper, session, transform, input_name)

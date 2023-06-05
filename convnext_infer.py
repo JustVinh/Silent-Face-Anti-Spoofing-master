@@ -75,7 +75,7 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
     # param = {
     #     "org_img": image,
     #     "bbox": image_bbox,
-    #     "scale": 4,
+    #     "scale": 2.7,
     #     "out_w": 224,
     #     "out_h": 224,
     #     "crop": True,
