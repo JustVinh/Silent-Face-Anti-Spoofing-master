@@ -2,10 +2,10 @@ import cv2
 import time
 
 label = 1
-name = 572
+name = 1864
 
-DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata/Vid_data-20230602T072825Z-001/Vid_data'
-REAL_DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
+DATA_PATH = '/home/vinhnt/Downloads/'
+REAL_DATA_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2.7_224x224/val'
 
 import os
 
@@ -13,7 +13,7 @@ directory = os.fsencode(DATA_PATH)
 frame_count = 0
 for file in os.listdir(directory):
     filename = os.fsdecode(file)
-    if filename.endswith(".MOV"):
+    if filename.endswith(".mp4"):
         file_path = os.path.join(DATA_PATH, filename)
         vid = cv2.VideoCapture(file_path)
         fps = int(vid.get(cv2.CAP_PROP_FPS))
@@ -29,6 +29,7 @@ for file in os.listdir(directory):
                 # cv2.imshow('frame' + str(name), frame)
                 cv2.imwrite(REAL_DATA_PATH + '/' + str(label) + '/' + str(name) + '.jpg', frame)
                 name += 1
+
                 # the 'q' button is set as the
                 # quitting button you may use any
                 # desired button of your choice

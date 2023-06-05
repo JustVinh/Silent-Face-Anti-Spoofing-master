@@ -1,2 +1,3 @@
 .idea
 /datasets/rgb_image
+/resources/convnext_quantized

@@ -69,10 +69,12 @@ class CropImage:
 
 if __name__ == "__main__":
     DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
-    PATCH_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2_224x224'
+    PATCH_PATH = '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/datasets/rgb_image/2.7_224x224'
     image_cropper = CropImage()
     detector = Detection()
     no_img = 0
+
+
     for label in range(2):
         directory = os.fsencode(DATA_PATH + '/' + str(label))
         for file in os.listdir(directory):
@@ -82,7 +84,7 @@ if __name__ == "__main__":
                 img = cv2.imread(file_path)
 
                 img_bbox = detector.get_bbox(img)
-                new_img = image_cropper.crop(img, img_bbox, 1, 224, 224, True)
+                new_img = image_cropper.crop(img, img_bbox, 4, 224, 224, True)
 
                 my_label = 1
                 if label == 0: my_label = 0
