@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 
 
 SAMPLE_IMAGE_PATH = "./images/sample/"
-DATA_PATH = '/home/vinhnt/work/DATN/FAS/data/mydata'
+DATA_PATH = '/home/vinhnt/Downloads/FAS/val-20230622T095101Z-001/val'
 
 # 因为安卓端APK获取的视频流宽高比为3:4,为了与之一致，所以将宽高比限制为3:4
 def check_image(image):
@@ -51,8 +51,8 @@ def test_cam(model_1, image_cropper):
 
                 frame = cv2.imread(file_path)
                 pred = test_image(frame, model_1, image_cropper)
-                if pred == 1: pred = 0
-                else: pred = 1
+                # if pred == 1: pred = 0
+                # else: pred = 1
 
                 if label == pred:
                     n_true += 1
@@ -89,13 +89,13 @@ def test_image(image, model_1, image_cropper):
     if result is False:
         return
     image_bbox = model_1.get_bbox(image)
-    prediction = np.zeros((1, 3))
+    prediction = np.zeros((1, 2)) #num classes here
     test_speed = 0
     # sum the prediction from single model's result
     model_list = [model_1]
     for i, model in enumerate(model_list):
         if i == 0:
-            h_input, w_input, model_type, scale = parse_model_name('1_80x80_MiniFASNetV2SE.pth')
+            h_input, w_input, model_type, scale = parse_model_name('2.7_80x80_MiniFASNetV2SE.pth')
         else:
             h_input, w_input, model_type, scale = parse_model_name('2.7_80x80_MiniFASNetV2.pth')
         param = {
@@ -117,13 +117,13 @@ def test_image(image, model_1, image_cropper):
     label = np.argmax(prediction)
     value = prediction[0][label]
     if label == 1:
-        print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", value))
-        result_text = "FakeFace Score: {:.2f}".format(value)
-        color = (0, 0, 255)
-    else:
         print("Image '{}' is Real Face. Score: {:.2f}.".format("image_name", value))
-        result_text = "RealFace Score: {:.2f}".format(value)
+        result_text = "FakeFace Score: {:.2f}".format(value)
         color = (255, 0, 0)
+    else:
+        print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", value))
+        result_text = "RealFace Score: {:.2f}".format(value)
+        color = (0, 0, 255)
     print("Prediction cost {:.2f} s".format(test_speed))
     cv2.rectangle(
         image,
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     model_1 = AntiSpoofPredict(args.device_id)
 
     model_1.custom_load_modelv2(
-        '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/1_80x80_MiniFASNetV2SE.pth')
+        '/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2SE.pth')
 
     image_cropper = CropImage()
 

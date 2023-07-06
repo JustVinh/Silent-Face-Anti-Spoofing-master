@@ -16,6 +16,9 @@ import torch
 import onnxruntime
 import timm
 import uuid
+import multiprocessing
+import concurrent.futures
+
 # import torchvision.transforms as transforms
 
 from src.anti_spoof_predict import AntiSpoofPredict
@@ -45,7 +48,52 @@ def test_cam(model_1, image_cropper, session, transform, input_name):
         # Capture the video frame
         # by frame
         ret, frame = vid.read()
-        test_image(frame, model_1, image_cropper, session, transform, input_name)
+        frame_clone = frame.copy()
+        test_speed = 0
+        start = time.time()
+        # #ver1
+        # label2, image_bbox = test_image_mobilenet(frame_clone, model_1, image_cropper)
+        # if(label2 == 1):
+        #     label1, image_bbox = test_image(frame, model_1, image_cropper, session, transform, input_name)
+        # else:
+        #     label2 = 0
+        image_bbox = model_1.get_bbox(frame)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit function1 to the executor
+            future1 = executor.submit(test_image_mobilenet, frame_clone, model_1, image_bbox)
+
+            # Submit function2 to the executor
+            future2 = executor.submit(test_image, frame, model_1, image_bbox, session, transform, input_name)
+
+            # Retrieve the returned values from both futures
+            label2, image_bbox = future1.result()
+            label1, image_bbox= future2.result()
+
+        test_speed += time.time() - start
+        if(label1 != 1) or (label2 != 1):
+            label = 0
+        else:
+            label = 1
+
+        if label == 1:
+            print("Image '{}' is Real Face. Score: {:.2f}.".format("image_name", 0))
+            result_text = "RealFace Score: {:.2f}".format(0)
+            color = (255, 0, 0)
+        else:
+            print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", 0))
+            result_text = "FakeFace Score: {:.2f}".format(0)
+            color = (0, 0, 255)
+        print("Prediction cost {:.2f} s".format(test_speed))
+        cv2.rectangle(
+            frame,
+            (image_bbox[0], image_bbox[1]),
+            (image_bbox[0] + image_bbox[2], image_bbox[1] + image_bbox[3]),
+            color, 2)
+        cv2.putText(
+            frame,
+            result_text,
+            (image_bbox[0], image_bbox[1] - 5),
+            cv2.FONT_HERSHEY_COMPLEX, 0.5 * frame.shape[0] / 1024, color)
         # Display the resulting frame
         cv2.imshow('frame', frame)
 
@@ -65,13 +113,12 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0) # only difference
 
-def test_image(image, model_1, image_cropper, session, transform, input_name):
+def test_image(image, model_1, image_bbox, session, transform, input_name):
     image_clone = image.copy()
     image_cropper = CropImage()
     result = check_image(image)
     if result is False:
         return
-    image_bbox = model_1.get_bbox(image)
 
     test_speed = 0
     # sum the prediction from single model's result
@@ -97,26 +144,7 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
     probabilities = softmax(a[0])
     label = probabilities.argmax()
     # draw result of prediction
-    if label == 1:
-        print("Image '{}' is Real Face. Score: {:.2f}.".format("image_name", 0))
-        result_text = "RealFace Score: {:.2f}".format(0)
-        color = (255, 0, 0)
-    else:
-        print("Image '{}' is Fake Face. Score: {:.2f}.".format("image_name", 0))
-        result_text = "FakeFace Score: {:.2f}".format(0)
-        color = (0, 0, 255)
-    print("Prediction cost {:.2f} s".format(test_speed))
-    cv2.rectangle(
-        image,
-        (image_bbox[0], image_bbox[1]),
-        (image_bbox[0] + image_bbox[2], image_bbox[1] + image_bbox[3]),
-        color, 2)
-    cv2.putText(
-        image,
-        result_text,
-        (image_bbox[0], image_bbox[1] - 5),
-        cv2.FONT_HERSHEY_COMPLEX, 0.5*image.shape[0]/1024, color)
-
+    return label, image_bbox
     # # # # #todo: comment this if not necessary
     # if label == 1:
     #     cv2.imwrite(FALSE_POSITIVE_IMAGE_PATH + str(uuid.uuid4()) + '.jpg', image_clone)
@@ -126,6 +154,45 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
     # cv2.imwrite(SAMPLE_IMAGE_PATH + result_image_name, image)
     # cv2.imshow("Result", image)
 
+def test_image_mobilenet(image, model_1, image_bbox):
+
+    image_cropper = CropImage()
+    result = check_image(image)
+    if result is False:
+        return
+    prediction = np.zeros((1, 3))
+    test_speed = 0
+    # sum the prediction from single model's result
+    model_list = [model_1]
+    for i, model in enumerate(model_list):
+        if i ==0 :
+            h_input, w_input, model_type, scale = parse_model_name('4_0_0_80x80_MiniFASNetV1SE.pth')
+        else:
+            h_input, w_input, model_type, scale = parse_model_name('2.7_80x80_MiniFASNetV2.pth')
+        param = {
+            "org_img": image,
+            "bbox": image_bbox,
+            "scale": scale,
+            "out_w": w_input,
+            "out_h": h_input,
+            "crop": True,
+        }
+        if scale is None:
+            param["crop"] = False
+        img = image_cropper.crop(**param)
+        start = time.time()
+        prediction += model.predict_from_loaded(img)
+        test_speed += time.time()-start
+
+    # draw result of prediction
+    label = np.argmax(prediction)
+    value = prediction[0][label]/2
+    return label, image_bbox
+
+    # format_ = os.path.splitext(image_name)[-1]
+    # result_image_name = image_name.replace(format_, "_result" + format_)
+    # cv2.imwrite(SAMPLE_IMAGE_PATH + result_image_name, image)
+    # cv2.imshow("Result", image)
 
 if __name__ == "__main__":
     desc = "test"
@@ -150,11 +217,11 @@ if __name__ == "__main__":
     model_1 = AntiSpoofPredict(args.device_id)
     # model_2 = AntiSpoofPredict(args.device_id)
 
-    # model_1.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth')
+    model_1.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth')
     # model_2.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth')
     image_cropper = CropImage()
 
-    # model_1.model.eval()
+    model_1.model.eval()
     # model_1.model.cuda()
     #
     # model_2.model.eval()

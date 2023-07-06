@@ -130,7 +130,7 @@ class AntiSpoofPredict(Detection):
             'embedding_size': 128,
             'conv6_kernel': (5, 5),
             'drop_p': 0.75,
-            'num_classes': 3,
+            'num_classes': 2,
             'img_channel': 3
         }
 

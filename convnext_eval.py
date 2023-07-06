@@ -15,6 +15,7 @@ from PIL import Image
 import torch
 import onnxruntime
 import timm
+import torchvision.transforms
 
 from src.anti_spoof_predict import AntiSpoofPredict
 from src.generate_patches import CropImage
@@ -111,10 +112,24 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
     # }
 
     # face_img = image_cropper.crop(**param)
-    color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    #eval without preprocessing (transform images)
+    color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) #shape 480,720,3
     pil_image = Image.fromarray(color_coverted)
 
-    im = transform(pil_image).unsqueeze(0).cpu().numpy().astype(np.float32)
+    # im = transform(pil_image).unsqueeze(0).cpu().numpy().astype(np.float32)
+    # tran_img = cv2.resize(image, (224, 224))
+    # tran_img = np.moveaxis(tran_img, -1, 0)
+    pil_image = pil_image.resize((224,224))
+    MEAN = 255 * np.array([0.4850, 0.4560, 0.4060])
+    STD = 255 * np.array([0.2290, 0.2240, 0.2250])
+    # img_pil = Image.open("ty.jpg")
+    x = np.array(pil_image) #shape 224,224,3
+    x = x.transpose(-1, 0, 1) #shape 3,224,224
+    x = (x - MEAN[:, None, None]) / STD[:, None, None]
+
+    im = torch.from_numpy(x).unsqueeze(0).cpu().numpy().astype(np.float32) #shape
+
 
     start = time.time()
     a = session.run(None, {input_name: im.astype(np.float32)})[0]

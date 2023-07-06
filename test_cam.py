@@ -140,9 +140,9 @@ if __name__ == "__main__":
     image_cropper = CropImage()
 
     model_1.model.eval()
-    model_1.model.cuda()
+    # model_1.model.cuda()
 
     model_2.model.eval()
-    model_2.model.cuda()
+    # model_2.model.cuda()
 
     test_cam(model_1, model_2, image_cropper)

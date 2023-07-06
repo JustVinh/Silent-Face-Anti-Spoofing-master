@@ -26,7 +26,7 @@ warnings.filterwarnings('ignore')
 
 SAMPLE_IMAGE_PATH = "./images/sample/"
 FALSE_NEGATIVE_IMAGE_PATH = '/home/vinhnt/Downloads/create_data/false_negative/'
-FALSE_POSITIVE_IMAGE_PATH= '/home/vinhnt/Downloads/create_data/new1/fake/fake_image/'
+FALSE_POSITIVE_IMAGE_PATH= '/home/vinhnt/Downloads/create_data/false_positive'
 
 
 # 因为安卓端APK获取的视频流宽高比为3:4,为了与之一致，所以将宽高比限制为3:4
@@ -66,7 +66,7 @@ def softmax(x):
     return e_x / e_x.sum(axis=0) # only difference
 
 def test_image(image, model_1, image_cropper, session, transform, input_name):
-    image_clone = image.copy()
+
     image_cropper = CropImage()
     result = check_image(image)
     if result is False:
@@ -76,20 +76,31 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
     test_speed = 0
     # sum the prediction from single model's result
 
-    param = {
-        "org_img": image,
-        "bbox": image_bbox,
-        "scale": 2.7,
-        "out_w": 224,
-        "out_h": 224,
-        "crop": True,
-    }
+    # param = {
+    #     "org_img": image,
+    #     "bbox": image_bbox,
+    #     "scale": 2.7,
+    #     "out_w": 224,
+    #     "out_h": 224,
+    #     "crop": True,
+    # }
 
-    face_img = image_cropper.crop(**param)
-    color_coverted = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+    # face_img = image_cropper.crop(**param)
+    color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) #shape 480,720,3
     pil_image = Image.fromarray(color_coverted)
 
-    im = transform(pil_image).unsqueeze(0).cpu().numpy().astype(np.float32)
+    # im = transform(pil_image).unsqueeze(0).cpu().numpy().astype(np.float32)
+    # tran_img = cv2.resize(image, (224, 224))
+    # tran_img = np.moveaxis(tran_img, -1, 0)
+    pil_image = pil_image.resize((224,224))
+    MEAN = 255 * np.array([0.4850, 0.4560, 0.4060])
+    STD = 255 * np.array([0.2290, 0.2240, 0.2250])
+    # img_pil = Image.open("ty.jpg")
+    x = np.array(pil_image) #shape 224,224,3
+    x = x.transpose(-1, 0, 1) #shape 3,224,224
+    x = (x - MEAN[:, None, None]) / STD[:, None, None]
+
+    im = torch.from_numpy(x).unsqueeze(0).cpu().numpy().astype(np.float32) #shape
 
     start = time.time()
     a = session.run(None, {input_name: im.astype(np.float32)})[0]
@@ -118,8 +129,8 @@ def test_image(image, model_1, image_cropper, session, transform, input_name):
         cv2.FONT_HERSHEY_COMPLEX, 0.5*image.shape[0]/1024, color)
 
     # # # # #todo: comment this if not necessary
-    # if label == 1:
-    #     cv2.imwrite(FALSE_POSITIVE_IMAGE_PATH + str(uuid.uuid4()) + '.jpg', image_clone)
+    # if label == 0:
+    #     cv2.imwrite(FALSE_NEGATIVE_IMAGE_PATH + str(uuid.uuid4()) + '.jpg', image_clone)
 
     # format_ = os.path.splitext(image_name)[-1]
     # result_image_name = image_name.replace(format_, "_result" + format_)
@@ -150,12 +161,12 @@ if __name__ == "__main__":
     model_1 = AntiSpoofPredict(args.device_id)
     # model_2 = AntiSpoofPredict(args.device_id)
 
-    # model_1.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth')
+    model_1.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth')
     # model_2.custom_load_model('/home/vinhnt/work/DATN/FAS/projects/Silent-Face-Anti-Spoofing-master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth')
     image_cropper = CropImage()
 
-    # model_1.model.eval()
-    # model_1.model.cuda()
+    model_1.model.eval()
+    model_1.model.cuda()
     #
     # model_2.model.eval()
     # model_2.model.cuda()
