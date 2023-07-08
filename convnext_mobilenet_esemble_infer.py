@@ -116,9 +116,9 @@ def softmax(x):
 def test_image(image, model_1, image_bbox, session, transform, input_name):
     image_clone = image.copy()
     image_cropper = CropImage()
-    result = check_image(image)
-    if result is False:
-        return
+    # result = check_image(image)
+    # if result is False:
+    #     return
 
     test_speed = 0
     # sum the prediction from single model's result
